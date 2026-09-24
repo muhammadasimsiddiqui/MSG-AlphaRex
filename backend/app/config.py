@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-this-before-deployment"
     jwt_expiry_minutes: int = 480
     generation_mode: str = "auto"  # "auto" (live OpenAI when key present) or "mock" (deterministic, offline)
+    auto_seed_demo: bool = False
 
 
 @lru_cache

@@ -38,6 +38,17 @@ def ensure_default_users():
 
 
 ensure_default_users()
+if settings.auto_seed_demo:
+    from .database import SessionLocal
+    from .models import Document
+    from .seed import seed
+    db = SessionLocal()
+    try:
+        needs_seed = not bool(db.query(Document).first())
+    finally:
+        db.close()
+    if needs_seed:
+        seed(reset=False, write_files=False)
 
 app = FastAPI(title="SkillSprint AI", version="0.1.0")
 app.add_middleware(
