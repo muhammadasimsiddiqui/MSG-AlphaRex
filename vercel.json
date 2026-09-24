@@ -4,7 +4,6 @@
   "installCommand": "cd frontend && npm ci",
   "functions": {
     "api/index.py": {
-      "runtime": "python3.12",
       "maxDuration": 30
     }
   },
