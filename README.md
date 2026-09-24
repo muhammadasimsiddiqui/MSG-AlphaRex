@@ -10,7 +10,7 @@ SkillSprint AI converts approved organizational documents into traceable, role-s
 4. From `backend`, run `uvicorn app.main:app --reload`.
 5. From `frontend`, run `npm install` then `npm run dev`.
 
-Seeded test accounts (password `ChangeMe123!` for all — locally only; replace or disable before going to production): `admin@skillsprint.local` (System Administrator), `reviewer@skillsprint.local` (Quality Reviewer), `training@skillsprint.local` (Training Manager), `manager@skillsprint.local` (Department Manager). API documentation is at `http://127.0.0.1:8000/docs`.
+Seeded test accounts (password `ChangeMe123!` for all — locally only; replace or disable before going to production): `admin@skillsprint.local` (System Administrator), `reviewer@skillsprint.local` (Quality Reviewer), `training@skillsprint.local` (Training Manager), `manager@skillsprint.local` (Department Manager), `learner@skillsprint.local` (Demo Learner, linked to employee profile `NSF-E001`). Each role sees its own dashboard and tabs: admin sees everything; training manager handles knowledge/matrix/plan generation/reports; reviewer validates and approves plans; manager sees overview and employees; learner gets a personal onboarding dashboard with modules, progress and source evidence. API documentation is at `http://127.0.0.1:8000/docs`.
 
 ## Core Controls
 

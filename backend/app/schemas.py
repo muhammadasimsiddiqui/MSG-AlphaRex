@@ -105,6 +105,7 @@ class UserOut(BaseModel):
     email: str
     display_name: str
     role: str
+    employee_id: str | None = None
 
 
 class EmployeeCreate(BaseModel):
@@ -146,3 +147,8 @@ class ProgressUpdate(BaseModel):
     task_complete: bool = False
     quiz_score: float | None = Field(default=None, ge=0, le=100)
     assessment_score: float | None = Field(default=None, ge=0, le=100)
+
+
+class LearnerDashboard(BaseModel):
+    employee: EmployeeOut
+    plans: list[PlanOut]

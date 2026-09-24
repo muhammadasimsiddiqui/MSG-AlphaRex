@@ -5,6 +5,13 @@ import "./styles.css";
 
 const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "/api" : "http://127.0.0.1:8000");
 const stages = ["Day 1", "Week 1", "Week 2", "First 30 Days", "First 60 Days", "First 90 Days"];
+const roleLabel = { admin: "System Administrator", reviewer: "Quality Reviewer", training_manager: "Training Manager", manager: "Department Manager", learner: "Learner" };
+const navByRole = {
+  admin: [["overview", "Overview"], ["documents", "Knowledge"], ["matrix", "Requirement matrix"], ["employees", "Employees"], ["generate", "Plan studio"], ["reviews", "Reviews"], ["reports", "Reports"]],
+  training_manager: [["overview", "Overview"], ["documents", "Knowledge"], ["matrix", "Requirement matrix"], ["generate", "Plan studio"], ["reports", "Reports"]],
+  reviewer: [["overview", "Overview"], ["reviews", "Reviews"], ["reports", "Reports"]],
+  manager: [["overview", "Overview"], ["employees", "Employees"]],
+};
 
 async function api(path, options) {
   const token = localStorage.getItem("skillsprint_token");
@@ -29,13 +36,19 @@ function App() {
   const [error, setError] = useState("");
   const [plan, setPlan] = useState(null);
   const [validation, setValidation] = useState(null);
+  const [learnerData, setLearnerData] = useState(null);
 
   useEffect(() => { document.querySelector("#app-favicon")?.setAttribute("href", brandLogo); }, []);
 
   const reload = async () => {
     try {
-      const [docs, matrix, people, savedPlans, overview, roleRows] = await Promise.all([api("/documents"), api("/requirements"), api("/employees"), api("/plans"), api("/reports/overview"), api("/roles/dashboard")]);
-      setDocuments(docs); setRequirements(matrix); setEmployees(people); setPlans(savedPlans); setReport(overview); setRoles(roleRows);
+      if (user.role === "learner") {
+        const data = await api("/learner/dashboard");
+        setLearnerData(data); setPlans(data.plans);
+      } else {
+        const [docs, matrix, people, savedPlans, overview, roleRows] = await Promise.all([api("/documents"), api("/requirements"), api("/employees"), api("/plans"), api("/reports/overview"), api("/roles/dashboard")]);
+        setDocuments(docs); setRequirements(matrix); setEmployees(people); setPlans(savedPlans); setReport(overview); setRoles(roleRows);
+      }
     } catch (err) { setError(`Cannot reach API: ${err.message}`); }
   };
   useEffect(() => { if (user) reload(); }, [user]);
@@ -45,9 +58,15 @@ function App() {
   };
 
   if (!user) return <Login onLogin={setUser} />;
+  const nav = navByRole[user.role] || [];
+  if (user.role === "learner") return <main>
+    <header><div className="brand"><div className="brand-mark"><img src={brandLogo} alt="SkillSprint AI" /></div><div><p className="eyebrow">ONBOARDING INTELLIGENCE</p><h1>SkillSprint <span>AI</span></h1></div></div><div className="live"><i /> {user.display_name} <span>{roleLabel[user.role] || user.role}</span><button className="logout" onClick={() => { localStorage.clear(); setUser(null); }}>Sign out</button></div></header>
+    {notice && <p className="notice">{notice}</p>}{error && <p className="error">{error}</p>}
+    <section className="workspace">{learnerData ? <LearnerDashboard user={user} data={learnerData} run={run} /> : <EmptyState text="Loading your onboarding dashboard…" />}</section>
+  </main>;
   return <main>
-    <header><div className="brand"><div className="brand-mark"><img src={brandLogo} alt="SkillSprint AI" /></div><div><p className="eyebrow">ONBOARDING INTELLIGENCE</p><h1>SkillSprint <span>AI</span></h1></div></div><div className="live"><i /> {user.display_name} <span>{user.role}</span><button className="logout" onClick={() => { localStorage.clear(); setUser(null); }}>Sign out</button></div></header>
-    <nav>{[["overview", "Overview"], ["documents", "Knowledge"], ["matrix", "Requirement matrix"], ["employees", "Employees"], ["generate", "Plan studio"], ["reviews", "Reviews"], ["reports", "Reports"]].map(([id, label]) => <button className={tab === id ? "active" : ""} onClick={() => setTab(id)} key={id}>{label}</button>)}</nav>
+    <header><div className="brand"><div className="brand-mark"><img src={brandLogo} alt="SkillSprint AI" /></div><div><p className="eyebrow">ONBOARDING INTELLIGENCE</p><h1>SkillSprint <span>AI</span></h1></div></div><div className="live"><i /> {user.display_name} <span>{roleLabel[user.role] || user.role}</span><button className="logout" onClick={() => { localStorage.clear(); setUser(null); }}>Sign out</button></div></header>
+    <nav>{nav.map(([id, label]) => <button className={tab === id ? "active" : ""} onClick={() => setTab(id)} key={id}>{label}</button>)}</nav>
     {notice && <p className="notice">{notice}</p>}{error && <p className="error">{error}</p>}
     <section className="workspace">{tab === "overview" && <Overview documents={documents} requirements={requirements} report={report} roles={roles} />}
     {tab === "documents" && <Documents documents={documents} submit={(form) => run(() => api("/documents", { method: "POST", body: form }), "Document processed and versioned.")} />}
@@ -114,6 +133,18 @@ function Reports({ report, roles, documents, run }) {
   const exportCsv = async () => { const response = await fetch(`${API}/reports/requirements.csv`, { headers: { Authorization: `Bearer ${localStorage.getItem("skillsprint_token")}` } }); if (!response.ok) throw new Error("Export failed."); const blob = await response.blob(); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "skillsprint-requirements.csv"; link.click(); URL.revokeObjectURL(url); };
   const analyze = (documentId) => run(async () => setImpact(await api(`/documents/${documentId}/impact`)), "Policy impact analysis completed.");
   return <section className="reports"><PageHeading eyebrow="ANALYTICS AND EXPORT" title="Compliance reporting" text="Monitor plan approval, policy risk, role coverage, and the impact of changing source documents." /><div className="metrics"><Metric value={report?.plans ?? 0} label="Generated plans" /><Metric value={report?.approved_plans ?? 0} label="Approved plans" /><Metric value={report?.quarantined_documents ?? 0} label="Quarantined docs" /><Metric value={report?.manual_review_plans ?? 0} label="Manual review flags" /></div><section className="split"><section className="panel"><div className="section-title"><h2>Role dashboard</h2><span className="count">{roles.length} roles</span></div><div className="table-scroll"><table><thead><tr><th>Role</th><th>Matrix</th><th>Plans</th></tr></thead><tbody>{roles.map((item) => <tr key={item.role}><td><b>{item.role}</b><small>{item.mandatory} mandatory</small></td><td>{item.requirements}</td><td>{item.approved_plans}/{item.plans} approved</td></tr>)}</tbody></table></div></section><section className="panel"><h2>Export and impact</h2><p>Download a complete requirement-level report, or identify only the plans affected by a policy update.</p><button className="primary" onClick={() => run(exportCsv, "Requirements CSV downloaded.")}>Export requirements CSV</button><label>Policy document<select onChange={(e) => e.target.value && analyze(e.target.value)} defaultValue=""><option value="">Select active policy</option>{documents.filter((doc) => doc.is_active).map((doc) => <option value={doc.document_id} key={`${doc.document_id}-${doc.version}`}>{doc.document_id} · {doc.title}</option>)}</select></label>{impact && <article className="impact"><b>{impact.document_id} v{impact.active_version}</b><p>{impact.affected_requirement_ids.length} requirements and {impact.affected_plan_ids.length} plans are affected.</p><small>{impact.action}</small></article>}</section></section></section>;
+}
+
+function LearnerDashboard({ data, run }) {
+  const [selected, setSelected] = useState(null);
+  const [evidence, setEvidence] = useState([]);
+  const employee = data.employee;
+  const plans = data.plans || [];
+  const modules = selected ? selected.payload.modules : [];
+  const completed = modules.filter((module) => module.progress?.completed).length;
+  const openPlan = async (plan) => { setSelected(plan); try { setEvidence(await api(`/plans/${plan.id}/evidence`)); } catch (err) { setEvidence([]); } };
+  const mark = (module) => run(async () => { const result = await api(`/plans/${selected.id}/progress`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ module_id: module.module_id, completed: true, checklist_complete: true, task_complete: true, quiz_score: 85, assessment_score: 85 }) }); setSelected(result); }, "Module marked complete.");
+  return <section><PageHeading eyebrow="MY ONBOARDING" title="Learner dashboard" text="Track your source-grounded onboarding plan, complete each module, and see the exact policy evidence behind every requirement." /><section className="panel role-snapshot"><div className="section-title"><div><p className="eyebrow">PROFILE</p><h2>{employee.name}</h2></div><span className="count">{employee.employee_id}</span></div><p><b>Role</b><span>{employee.role}</span></p><p><b>Department</b><span>{employee.department}</span></p><p><b>Experience</b><span>{employee.experience_level}</span></p><p><b>Manager</b><span>{employee.manager || "—"}</span></p><p><b>Training status</b><span className="tag">{employee.training_status}</span></p></section><div className="metrics"><Metric value={plans.length} label="Onboarding plans" /><Metric value={modules.length} label="Modules" /><Metric value={completed} label="Completed" /><Metric value={modules.length - completed} label="Remaining" /></div><section className="split review"><section className="panel"><div className="section-title"><h2>Your plans</h2><span className="count">{plans.length}</span></div>{plans.length ? plans.map((item) => <button className={`plan-row ${selected?.id === item.id ? "selected" : ""}`} onClick={() => openPlan(item)} key={item.id}><b>Plan #{item.id} · {item.role}</b><small>{item.status}</small></button>) : <EmptyState text="An administrator has not generated your onboarding plan yet." />}</section><section className="panel">{selected ? <><h2>Plan #{selected.id} · {selected.role}</h2><p className="status-line">Current status: <b>{selected.status}</b></p><h3>Modules</h3>{modules.map((module) => <article className={`module ${module.progress?.completed ? "done" : ""}`} key={module.module_id}><span>{module.due_stage} · {module.mandatory ? "Mandatory" : "Optional"}</span><h4>{module.module_title}</h4><p>{module.requirement_id} · {module.source_document_id} v{module.source_document_version} / {module.source_section_id}</p><button className="primary" disabled={module.progress?.completed} onClick={() => mark(module)}>{module.progress?.completed ? "Completed" : "Mark complete"}</button></article>)}<h3>Source evidence</h3>{evidence.length ? evidence.map((item) => <article className="evidence" key={item.module_id}><b>{item.requirement_id}</b><small>{item.document_id} v{item.document_version} · {item.chunk_id}</small><p>{item.excerpt}</p></article>) : <EmptyState text="No evidence available for this plan." />}</> : <EmptyState text="Select a plan to view modules and source evidence." />}</section></section></section>;
 }
 
 createRoot(document.getElementById("root")).render(<StrictMode><App /></StrictMode>);

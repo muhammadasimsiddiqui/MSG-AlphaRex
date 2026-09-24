@@ -77,6 +77,7 @@ def seed(reset: bool, write_files: bool = True) -> None:
                 User(email="reviewer@skillsprint.local", display_name="Quality Reviewer", password_hash=hash_password("ChangeMe123!"), role="reviewer"),
                 User(email="training@skillsprint.local", display_name="Training Manager", password_hash=hash_password("ChangeMe123!"), role="training_manager"),
                 User(email="manager@skillsprint.local", display_name="Department Manager", password_hash=hash_password("ChangeMe123!"), role="manager"),
+                User(email="learner@skillsprint.local", display_name="Demo Learner", password_hash=hash_password("ChangeMe123!"), role="learner", employee_id="NSF-E001"),
             ])
         active_docs = []
         for document_id, title, category in DOCUMENTS:

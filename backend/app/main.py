@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .database import Base, engine, get_db
 from .models import AuditEvent, Document, DocumentChunk, Employee, Plan, RoleRequirement, User, ValidationRun
-from .schemas import DocumentOut, EmployeeCreate, EmployeeOut, GenerateRequest, LoginRequest, OnboardingPlan, PlanOut, ProgressUpdate, RequirementCreate, RequirementOut, ReviewDecision, UserOut, ValidationResult
+from .schemas import DocumentOut, EmployeeCreate, EmployeeOut, GenerateRequest, LearnerDashboard, LoginRequest, OnboardingPlan, PlanOut, ProgressUpdate, RequirementCreate, RequirementOut, ReviewDecision, UserOut, ValidationResult
 from .security import create_token, current_user, hash_password, require_roles, verify_password
 from .services.audit import record_audit
 from .services.documents import ingest_document
@@ -30,14 +30,15 @@ def ensure_default_users():
     db = SessionLocal()
     try:
         seed_users = [
-            ("admin@skillsprint.local", "System Administrator", "admin"),
-            ("reviewer@skillsprint.local", "Quality Reviewer", "reviewer"),
-            ("training@skillsprint.local", "Training Manager", "training_manager"),
-            ("manager@skillsprint.local", "Department Manager", "manager"),
+            ("admin@skillsprint.local", "System Administrator", "admin", None),
+            ("reviewer@skillsprint.local", "Quality Reviewer", "reviewer", None),
+            ("training@skillsprint.local", "Training Manager", "training_manager", None),
+            ("manager@skillsprint.local", "Department Manager", "manager", None),
+            ("learner@skillsprint.local", "Demo Learner", "learner", "NSF-E001"),
         ]
-        for email, display_name, role in seed_users:
+        for email, display_name, role, employee_id in seed_users:
             if not db.query(User).filter(User.email == email).first():
-                db.add(User(email=email, display_name=display_name, password_hash=hash_password("ChangeMe123!"), role=role))
+                db.add(User(email=email, display_name=display_name, password_hash=hash_password("ChangeMe123!"), role=role, employee_id=employee_id))
         db.commit()
     finally:
         db.close()
@@ -197,7 +198,11 @@ def validate_generated_plan(plan: OnboardingPlan, db: Session = Depends(get_db),
 @app.get("/plans", response_model=list[PlanOut])
 def list_plans(employee_id: str | None = None, db: Session = Depends(get_db), user: User = Depends(current_user)):
     query = db.query(Plan)
-    if employee_id:
+    if user.role == "learner":
+        if not user.employee_id:
+            raise HTTPException(403, "Learner account has no linked employee profile.")
+        query = query.filter(Plan.employee_id == user.employee_id)
+    elif employee_id:
         query = query.filter(Plan.employee_id == employee_id)
     return query.order_by(Plan.created_at.desc()).all()
 
@@ -246,6 +251,8 @@ def update_progress(plan_id: int, update: ProgressUpdate, db: Session = Depends(
     plan = db.get(Plan, plan_id)
     if not plan:
         raise HTTPException(404, "Plan not found.")
+    if user.role == "learner" and plan.employee_id != user.employee_id:
+        raise HTTPException(403, "Learners can only update progress on their own plans.")
     payload = copy.deepcopy(plan.payload)
     modules = payload.get("modules", [])
     matching = next((module for module in modules if module["module_id"] == update.module_id), None)
@@ -276,6 +283,17 @@ def recommendations(plan_id: int, db: Session = Depends(get_db), user: User = De
         elif not progress.get("task_complete", False):
             results.append({"module_id": module["module_id"], "recommendation": "Schedule manager review for incomplete practical task.", "reason": "Task incomplete."})
     return results
+
+
+@app.get("/learner/dashboard", response_model=LearnerDashboard)
+def learner_dashboard(db: Session = Depends(get_db), user: User = Depends(require_roles("learner"))):
+    if not user.employee_id:
+        raise HTTPException(422, "Learner account has no linked employee profile.")
+    employee = db.query(Employee).filter(Employee.employee_id == user.employee_id).first()
+    if not employee:
+        raise HTTPException(404, "Linked employee profile not found.")
+    plans = db.query(Plan).filter(Plan.employee_id == user.employee_id).order_by(Plan.created_at.desc()).all()
+    return {"employee": employee, "plans": plans}
 
 
 @app.get("/audit-events")
