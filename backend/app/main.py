@@ -29,10 +29,16 @@ def ensure_default_users():
     from .database import SessionLocal
     db = SessionLocal()
     try:
-        if not db.query(User).filter(User.email == "admin@skillsprint.local").first():
-            db.add(User(email="admin@skillsprint.local", display_name="System Administrator", password_hash=hash_password("ChangeMe123!"), role="admin"))
-            db.add(User(email="reviewer@skillsprint.local", display_name="Quality Reviewer", password_hash=hash_password("ChangeMe123!"), role="reviewer"))
-            db.commit()
+        seed_users = [
+            ("admin@skillsprint.local", "System Administrator", "admin"),
+            ("reviewer@skillsprint.local", "Quality Reviewer", "reviewer"),
+            ("training@skillsprint.local", "Training Manager", "training_manager"),
+            ("manager@skillsprint.local", "Department Manager", "manager"),
+        ]
+        for email, display_name, role in seed_users:
+            if not db.query(User).filter(User.email == email).first():
+                db.add(User(email=email, display_name=display_name, password_hash=hash_password("ChangeMe123!"), role=role))
+        db.commit()
     finally:
         db.close()
 
