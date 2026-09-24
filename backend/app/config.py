@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite:///../data/skillsprint.db")
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
-    upload_dir: Path = Path("../data/uploads")
+    data_dir: str = "../data"
+    upload_dir: str = "../data/uploads"
     max_upload_bytes: int = 15 * 1024 * 1024
     jwt_secret: str = "change-this-before-deployment"
     jwt_expiry_minutes: int = 480

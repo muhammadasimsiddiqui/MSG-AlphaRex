@@ -20,8 +20,8 @@ from .services.generation import generate_plan
 from .services.validation import validate_plan
 
 settings = get_settings()
-Path("../data").mkdir(exist_ok=True)
-settings.upload_dir.mkdir(parents=True, exist_ok=True)
+Path(settings.data_dir).mkdir(exist_ok=True)
+Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 

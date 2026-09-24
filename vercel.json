@@ -8,7 +8,9 @@
     }
   },
   "env": {
-    "DATABASE_URL": "sqlite:////tmp/skillsprint.db",
+    "DATABASE_URL": "sqlite:////tmp/skillsprint/skillsprint.db",
+    "DATA_DIR": "/tmp/skillsprint/data",
+    "UPLOAD_DIR": "/tmp/skillsprint/data/uploads",
     "GENERATION_MODE": "mock",
     "AUTO_SEED_DEMO": "true"
   },
